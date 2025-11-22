@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Maths avec Stitch</title>
+  <style>
+    body { font-family: Arial; background:#f7f9fc; margin:0; }
+    .card { background:#fff; border:1px solid #ccc; border-radius:10px; padding:16px; margin:20px; }
+    .btn-ghost { background:#eef5ff; border:1px solid #cfe0ff; padding:8px 12px; margin:4px; cursor:pointer; }
+    .feedback { font-weight:bold; margin-top:10px; }
+    .success { color:green; }
+    .hint { color:orange; }
+    #mascotte { position:fixed; bottom:16px; right:16px; background:#fff; border:1px solid #ccc; padding:10px; border-radius:10px; text-align:center; }
+    #stitch { width:100px; }
+    @keyframes jump {0%{transform:translateY(0);}50%{transform:translateY(-15px);}100%{transform:translateY(0);} }
+    .stitch-happy { animation:jump 0.6s ease; }
+    @keyframes shake {0%{transform:translateX(0);}25%{transform:translateX(-10px);}50%{transform:translateX(10px);}75%{transform:translateX(-10px);}100%{transform:translateX(0);} }
+    .stitch-error { animation:shake 0.5s ease; }
+
+@keyframes wave {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(5deg); }
+  50% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.stitch-idle {
+  animation: wave 2s infinite ease-in-out;
+}
+
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h3>Compléments à 10</h3>
+    <p id="c10-eq">7 + ____ = 10</p>
+    <div id="c10-options"></div>
+    <p class="feedback" id="c10-fb"></p>
+    <button class="btn-ghost" id="c10-next">Nouvel exercice</button>
+  </div>
+<div class="card" id="bridge10">
+  <h3>Pont vers la prochaine dizaine</h3>
+  <p class="enonce">Atteins la prochaine dizaine puis ajoute le reste :</p>
+  <div class="line"></div>
+  <p id="b10-enonce">38 + 9 = ?</p>
+  <div class="etapes">
+    <button class="btn-ghost" data-step="toTen">Aller à la dizaine</button>
+    <button class="btn-ghost" data-step="rest">Ajouter le reste</button>
+    <button class="btn" data-step="answer">Réponse</button>
+  </div>
+  <p class="feedback" id="b10-aide"></p>
+  <p class="feedback" id="b10-res"></p>
+  <div class="stars" id="b10-stars">Étoiles: 0 ⭐</div>
+  <button class="btn-ghost" id="b10-next">Nouvel exercice</button>
+</div>
+<div class="card" id="addsub">
+  <h3>Additions et soustractions (≤ 100)</h3>
+  <p class="enonce">Calcule en séparant dizaines et unités :</p>
+  <div class="line"></div>
+  <p id="as-enonce">46 + 23 = ?</p>
+  <div class="options" id="as-options"></div>
+  <p class="feedback" id="as-fb"></p>
+  <div class="stars" id="as-stars">Étoiles: 0 ⭐</div>
+  <button class="btn-ghost" id="as-next">Nouvel exercice</button>
+</div>
+<div class="card" id="comp100">
+  <h3>Compléments à 100</h3>
+  <p class="enonce">Trouve le complément à 100 :</p>
+  <div class="line"></div>
+  <p id="c100-eq">100 - 37 = ____</p>
+  <div class="options" id="c100-options"></div>
+  <p class="feedback" id="c100-fb"></p>
+  <div class="stars" id="c100-stars">Étoiles: 0 ⭐</div>
+  <button class="btn-ghost" id="c100-next">Nouvel exercice</button>
+</div>
+<div class="card" id="problem">
+  <h3>Problèmes guidés</h3>
+  <p class="enonce">Lis bien l’énoncé et résous étape par étape :</p>
+  <div class="line"></div>
+  <p id="pb-enonce">Stitch a 12 noix de coco. Il en trouve 7 de plus. Combien en a-t-il ?</p>
+  <div class="etapes">
+    <button class="btn-ghost" data-step="understand">Comprendre la question</button>
+    <button class="btn-ghost" data-step="sign">Quel signe utiliser ?</button>
+    <button class="btn" data-step="calc">Écrire le calcul</button>
+  </div>
+  <p class="feedback" id="pb-fb"></p>
+  <input type="text" id="pb-input" placeholder="Ex: 12 + 7 = 19">
+  <button class="btn-ghost" id="pb-check">Vérifier</button>
+  <div class="stars" id="pb-stars">Étoiles: 0 ⭐</div>
+  <button class="btn-ghost" id="pb-next">Nouvel exercice</button>
+</div>
+
+    
+    <aside id="mascotte">
+    
+<img id="stitch" src="stitch.png" alt="Stitch" class="stitch-idle">
+
+    <p id="mascotte-message">Aloha ! Je suis Stitch 🐾</p>
+  </aside>
+
+  <script>
+    const rand=(min,max)=>Math.floor(Math.random()*(max-min+1))+min;
+    const shuffle=arr=>arr.sort(()=>Math.random()-0.5);
+
+    function stitchBravo(){
+      document.getElementById("mascotte-message").textContent="Bravo 🌟";
+      const s=document.getElementById("stitch");
+      s.classList.add("stitch-happy");
+      setTimeout(()=>s.classList.remove("stitch-happy"),700);
+    }
+    function stitchErreur(){
+      document.getElementById("mascotte-message").textContent="Essaie encore 😅";
+      const s=document.getElementById("stitch");
+      s.classList.add("stitch-error");
+      setTimeout(()=>s.classList.remove("stitch-error"),600);
+    }
+
+    const c10Eq=document.getElementById('c10-eq');
+    const c10Options=document.getElementById('c10-options');
+    const c10Fb=document.getElementById('c10-fb');
+
+    function newC10(){
+      const left=rand(1,9);
+      const answer=10-left;
+      c10Eq.textContent=`${left} + ____ = 10`;
+      c10Fb.textContent='';
+      const choices=[answer];
+      while(choices.length<4){
+        const c=rand(1,9);
+        if(!choices.includes(c)) choices.push(c);
+      }
+      shuffle(choices);
+      c10Options.innerHTML='';
+      choices.forEach(c=>{
+        const btn=document.createElement('button');
+        btn.className='btn-ghost';
+        btn.textContent=c;
+        btn.onclick=()=>{
+          if(c===answer){
+            c10Fb.textContent=`Bravo ! ${left}+${answer}=10`;
+            c10Fb.className='feedback success';
+            stitchBravo();
+          } else {
+            c10Fb.textContent='Essaie encore…';
+            c10Fb.className='feedback hint';
+            stitchErreur();
+          }
+        };
+        c10Options.appendChild(btn);
+      });
+    }
+    newC10();
+    document.getElementById('c10-next').onclick=newC10;
+  </script>
+
+<script>
+  /* 2) Ponts de dizaine */
+  let bBase = 38, bAdd = 9;
+  const bEnonce = document.getElementById('b10-enonce');
+  const bAide = document.getElementById('b10-aide');
+  const bRes = document.getElementById('b10-res');
+
+  function newBridge() {
+    bBase = rand(11, 89); // nombre de départ
+    const roomToTen = 10 - (bBase % 10); // combien pour atteindre la dizaine
+    bAdd = rand(roomToTen+1, roomToTen+9); // un nombre qui dépasse la dizaine
+    bEnonce.textContent = `${bBase} + ${bAdd} = ?`;
+    bAide.textContent = ''; 
+    bRes.textContent = '';
+  }
+  newBridge();
+
+  // Gestion des clics sur les boutons
+  document.querySelectorAll('#bridge10 .etapes button').forEach(b => {
+    b.addEventListener('click', () => {
+      const roomToTen = 10 - (bBase % 10);
+      if (b.dataset.step === 'toTen') {
+        bAide.textContent = `${bBase} + ${roomToTen} = ${bBase+roomToTen}`;
+        bAide.className = 'feedback success';
+      } else if (b.dataset.step === 'rest') {
+        bAide.textContent = `Il reste ${bAdd-roomToTen}`;
+        bAide.className = 'feedback success';
+      } else {
+        const total = bBase + bAdd;
+        bRes.textContent = `${bBase} + ${bAdd} = ${total}`;
+        bRes.className = 'feedback success';
+        stitchBravo();
+      }
+    });
+  });
+
+  document.getElementById('b10-next').addEventListener('click', newBridge);
+
+
+function stitchBravo(){
+  document.getElementById("mascotte-message").textContent = "Bravo 🌟";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-happy");
+  setTimeout(()=>s.classList.remove("stitch-happy"),700);
+}
+
+function stitchErreur(){
+  document.getElementById("mascotte-message").textContent = "Essaie encore 😅";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-error");
+  setTimeout(()=>s.classList.remove("stitch-error"),600);
+}
+
+
+</script>
+
+<script>
+  /* 3) Additions / Soustractions ≤ 100 */
+  const asEnonce = document.getElementById('as-enonce');
+  const asOptions = document.getElementById('as-options');
+  const asFb = document.getElementById('as-fb');
+  let asA=46, asB=23, asOp='+', asAnswer=69;
+
+  function newAS() {
+    asOp = Math.random()<0.5?'+':'-';
+    asA = rand(10,99); 
+    asB = rand(1,49);
+    if(asOp==='-' && asB>asA) asB=rand(1,asA); // éviter résultat négatif
+    asAnswer = asOp==='+'?asA+asB:asA-asB;
+    asEnonce.textContent = `${asA} ${asOp} ${asB} = ?`;
+    asFb.textContent='';
+    const choices=[asAnswer];
+    while(choices.length<4){
+      const c=asAnswer+rand(-8,8);
+      if(c>=0 && c<=100 && !choices.includes(c)) choices.push(c);
+    }
+    shuffle(choices);
+    asOptions.innerHTML='';
+    choices.forEach(c=>{
+      const btn=document.createElement('button');
+      btn.className='btn-ghost'; btn.textContent=c;
+      btn.addEventListener('click',()=>{
+        if(c===asAnswer){
+          asFb.textContent='Bien joué !'; 
+          asFb.className='feedback success';
+          stars.as+=1; localStorage.setItem('stars_as',stars.as);
+          updateStars(); stitchBravo(); updateProgression();
+        } else {
+          asFb.textContent='Essaie en séparant dizaines et unités.'; 
+          asFb.className='feedback hint'; stitchErreur();
+        }
+      });
+      asOptions.appendChild(btn);
+    });
+  }
+  newAS();
+  document.getElementById('as-next').addEventListener('click', newAS);
+function stitchBravo(){
+  document.getElementById("mascotte-message").textContent = "Bravo 🌟";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-happy");
+  setTimeout(()=>s.classList.remove("stitch-happy"),700);
+}
+
+function stitchErreur(){
+  document.getElementById("mascotte-message").textContent = "Essaie encore 😅";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-error");
+  setTimeout(()=>s.classList.remove("stitch-error"),600);
+}
+
+</script>
+
+<script>
+  /* 4) Compléments à 100 */
+  const c100Eq = document.getElementById('c100-eq');
+  const c100Options = document.getElementById('c100-options');
+  const c100Fb = document.getElementById('c100-fb');
+  let c100Right=37, c100Answer=63;
+
+  function newC100(){
+    c100Right = rand(11,89);
+    c100Answer = 100 - c100Right;
+    c100Eq.textContent = `100 - ${c100Right} = ____`;
+    c100Fb.textContent = '';
+    const choices=[c100Answer];
+    while(choices.length<4){
+      const c=rand(1,99);
+      if(!choices.includes(c)) choices.push(c);
+    }
+    shuffle(choices);
+    c100Options.innerHTML='';
+    choices.forEach(c=>{
+      const btn=document.createElement('button');
+      btn.className='btn-ghost'; btn.textContent=c;
+      btn.onclick=()=>{
+        if(c===c100Answer){
+          c100Fb.textContent=`Bravo ! 100 - ${c100Right} = ${c100Answer}`;
+          c100Fb.className='feedback success';
+          stars.c100+=1; localStorage.setItem('stars_c100',stars.c100);
+          updateStars(); stitchBravo(); updateProgression();
+        } else {
+          c100Fb.textContent='Essaie encore…';
+          c100Fb.className='feedback hint'; stitchErreur();
+        }
+      };
+      c100Options.appendChild(btn);
+    });
+  }
+  newC100();
+  document.getElementById('c100-next').addEventListener('click', newC100);
+function stitchBravo(){
+  document.getElementById("mascotte-message").textContent = "Bravo 🌟";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-happy");
+  setTimeout(()=>s.classList.remove("stitch-happy"),700);
+}
+
+function stitchErreur(){
+  document.getElementById("mascotte-message").textContent = "Essaie encore 😅";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-error");
+  setTimeout(()=>s.classList.remove("stitch-error"),600);
+}
+
+</script>
+
+<script>
+  const pbEnonce = document.getElementById('pb-enonce');
+  const pbFb = document.getElementById('pb-fb');
+  const pbInput = document.getElementById('pb-input');
+  let pbA=12, pbB=7, pbAnswer=19, pbOp='+';
+
+  function newProblem(){
+    // Choisir aléatoirement addition ou soustraction
+    pbOp = Math.random()<0.5?'+':'-';
+    pbA = rand(5,30);
+    pbB = rand(5,30);
+    pbAnswer = pbOp==='+' ? pbA+pbB : pbA-pbB;
+    const action = pbOp==='+' ? "en trouve" : "en perd";
+    pbEnonce.textContent = `Stitch a ${pbA} noix de coco. Il ${action} ${pbB}. Combien en a-t-il ?`;
+    pbFb.textContent='';
+    pbInput.value='';
+  }
+  newProblem();
+
+  document.querySelectorAll('#problem .etapes button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      if(b.dataset.step==='understand'){
+        pbFb.textContent='On cherche combien Stitch a au total.';
+        pbFb.className='feedback success';
+      } else if(b.dataset.step==='sign'){
+        pbFb.textContent = pbOp==='+' ? "C’est une addition ➕" : "C’est une soustraction ➖";
+        pbFb.className='feedback success';
+      } else if(b.dataset.step==='calc'){
+        pbFb.textContent='Écris ton calcul dans la case ci-dessous.';
+        pbFb.className='feedback hint';
+      }
+    });
+  });
+
+  document.getElementById('pb-check').addEventListener('click',()=>{
+    const val = pbInput.value.trim();
+    const correct = `${pbA} ${pbOp} ${pbB} = ${pbAnswer}`;
+    if(val === correct){
+      pbFb.textContent='Bravo ! Ton calcul est correct ✅';
+      pbFb.className='feedback success';
+      stars.pb+=1; localStorage.setItem('stars_pb',stars.pb);
+      updateStars(); stitchBravo(); updateProgression();
+    } else {
+      pbFb.textContent=`Essaie encore… (attendu: ${correct})`;
+      pbFb.className='feedback hint';
+      stitchErreur();
+    }
+  });
+
+  document.getElementById('pb-next').addEventListener('click', newProblem);
+function stitchBravo(){
+  document.getElementById("mascotte-message").textContent = "Bravo 🌟";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-happy");
+  setTimeout(()=>s.classList.remove("stitch-happy"),700);
+}
+
+function stitchErreur(){
+  document.getElementById("mascotte-message").textContent = "Essaie encore 😅";
+  const s = document.getElementById("stitch");
+  s.classList.add("stitch-error");
+  setTimeout(()=>s.classList.remove("stitch-error"),600);
+}
+
+</script>
+
+
+</body>
+</html>
